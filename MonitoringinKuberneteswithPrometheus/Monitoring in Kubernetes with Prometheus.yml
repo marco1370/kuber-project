@@ -1,0 +1,126 @@
+Monitoring in Kubernetes with Prometheus and Grafana
+Introduction
+Monitoring is an essential part of the overall CI/CD picture. To deploy frequently, you need to be able to have confidence that if a deployment breaks something, you will be able to identify the problem and respond quickly to minimize the impact on users. In this activity, you will learn to install and configure Prometheus and Grafana in a Kubernetes cluster, and you will set up some basic Grafana dashboards to give you insight into the performance of the cluster and the applications running in it.
+
+Log in to the Kubernetes master node using the Kubernetes Master Public IP provided in the Credentials section of the hands-on lab page.
+
+ssh cloud_user@&lt;KUBERNETES_MASTER_PUBLIC_IP&gt;
+Initialize Helm
+helm init --stable-repo-url=https://charts.helm.sh/stable --wait --tiller-image ghcr.io/helm/tiller:v2.8.2
+Install Prometheus in the Kubernetes Cluster
+To do this, make sure you have cloned the Kubernetes charts repo:
+
+ cd ~/
+ git clone https://github.com/kubernetes/charts
+ cd charts
+ git checkout efdcffe0b6973111ec6e5e83136ea74cdbe6527d
+ cd ../
+Create a prometheus-values.yml file:
+
+ vi prometheus-values.yml
+And paste in this content:
+
+alertmanager:
+  persistentVolume:
+    enabled: false
+server:
+  persistentVolume:
+    enabled: false
+Save and close the file:
+
+ :wq
+Use helm to install Prometheus with prometheus-values.yml:
+
+ helm install -f ~/prometheus-values.yml ~/charts/stable/prometheus --name prometheus --namespace prometheus
+We can see which pods are running in this new namespace with the command:
+
+ kubectl get pods -n prometheus
+Install Grafana in the Kubernetes Cluster
+Create a grafana-values.yml:
+
+ vi grafana-values.yml
+And paste in this content (you will use this password to log in to Grafana):
+
+ adminPassword: password
+Save and close the file:
+
+ :wq
+Use helm to install Grafana with grafana-values.yml:
+
+ helm install -f ~/grafana-values.yml ~/charts/stable/grafana --name grafana --namespace grafana
+We can see which pods are running in this new namespace with the command:
+
+ kubectl get pods -n grafana
+Deploy a NodePort Service to Provide External Access to Grafana
+Make a file called grafana-ext.yml:
+
+ vi grafana-ext.yml
+Paste in this content:
+
+kind: Service
+apiVersion: v1
+metadata:
+  namespace: grafana
+  name: grafana-ext
+spec:
+  type: NodePort
+  selector:
+    app: grafana
+  ports:
+  - protocol: TCP
+    port: 3000
+    nodePort: 8081
+Save and close the file:
+
+ :wq
+Deploy the service:
+
+ kubectl apply -f ~/grafana-ext.yml
+Log in to Grafana using the Kubernetes Node Public IP provided on the hands-on lab page:
+
+ &lt;KUBERNETES_NODE_PUBLIC_IP&gt;:8081
+Log in using the following credentials that were set earlier:
+
+Username: admin
+Password: password
+Create the Monitoring Dashboards
+Add a Datasource for Prometheus
+Click on Add data source
+
+Name: Kubernetes
+Type: Prometheus
+URL: http://prometheus-server.prometheus.svc.cluster.local
+Click Save & Test
+
+Add the Kubernetes All Nodes Community Dashboard
+Hover your mouse over the + in the left sidebar and click on Import.
+
+In the Grafana.com Dashboard field, provide the ID 3131. Click outside of the field to load information about the dashboard.
+
+In the Options section:
+
+prometheus: Kubernetes
+Click Import.
+
+Hover your mouse over the + in the left sidebar and then click Dashboard. Select the Graph panel.
+
+Hover over the Panel Title and click Edit.
+
+In the General tab at the bottom of the screen, set the Title to Requests Per Minute.
+
+In the Metrics tab, paste in the following query:
+
+ sum(rate(http_request_duration_ms_count[2m])) by (service, route, method, code)  * 60
+With that in place, let's load our train-schedule app to give our graph some data:
+
+ &lt;KUBERNETES_NODE_PUBLIC_IP&gt;:8080
+Refresh the page a few times.
+
+Now, navigate back to the Grafana dashboard tab in your browser. In the top-right of the page, click Last 6 hours and change the time selection to Last 5 minutes.
+
+Click Back to dashboard in the top-right of the page. Next, click Save dashboard, also in the top-right of the page.
+
+Name the dashboard "Train Schedule Performance" and click Save.
+
+Conclusion
+Congratulations, you've completed this hands-on lab!

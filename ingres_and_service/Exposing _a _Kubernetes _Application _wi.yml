@@ -1,0 +1,83 @@
+Exposing _a _Kubernetes _Application _with _Services_ and _Ingress
+Introduction
+Many applications are built to serve the outside world. As such, managing external access to an application is a crucial part of Kubernetes application design. In this lab, you will have the opportunity to use Services and Ingress to expose an application to the outside world.
+
+Solution
+Log in to the server using the credentials provided:
+
+ssh cloud_user@<PUBLIC_IP_ADDRESS>
+Create a Service to Expose the Application
+To begin, get a list of Pods in the hive Namespace, and take note of the labels on the Pods associated with the hive-io-frontend Deployment:
+
+kubectl get pods -n hive --show-labels
+You should see you have 2 Pods associated with the hive.io application.
+
+Create a YAML manifest for the Service:
+
+vi hive-io-frontend-svc.yml
+Add the following to the manifest:
+
+Note: When copying and pasting code into Vim from the lab guide, first enter :set paste (and then i to enter insert mode) to avoid adding unnecessary spaces and hashes. To save and quit the file, press Escape followed by :wq. To exit the file without saving, press Escape followed by :q!.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: hive-io-frontend-svc
+  namespace: hive
+spec:
+  type: ClusterIP
+  selector:Exposing _a _Kubernetes _Application _with _Services_ and _Ingress
+    app: hive-io-frontend
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 80
+Type ESC followed by :wq to save your changes.
+
+Use kubectl apply to create the Service:
+
+kubectl apply -f hive-io-frontend-svc.yml
+Get the Service's CLUSTER-IP address, and copy it:
+
+kubectl get svc hive-io-frontend-svc -n hive
+Use the hive-io-frontend-svc CLUSTER-IP address you just copied to test the Service on port 8080:
+
+curl <CLUSTER-IP>:8080
+You should see the Welcome to HiveCorp! message indicating the Service is working.
+
+Expose the Application Externally Using an Ingress
+Create a YAML file for the Ingress object:
+
+vi hive-io-frontend-ingress.yml
+Add the following to create the Ingress object:
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hive-io-frontend-ingress
+  namespace: hive
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: hive.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: hive-io-frontend-svc
+            port:
+              number: 8080
+Type ESC followed by :wq to save your changes.
+
+Use kubectl apply to create the Ingress:
+
+kubectl apply -f hive-io-frontend-ingress.yml
+Test your Ingress:
+
+curl hive.io
+You should see the Welcome to HiveCorp! message.
+
+Conclusion
+Congratulations — you've completed this hands-on lab!

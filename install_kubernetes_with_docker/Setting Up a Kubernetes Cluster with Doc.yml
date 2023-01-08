@@ -1,0 +1,144 @@
+Setting Up a Kubernetes Cluster with Docker
+Introduction
+Docker works well for running single containers or small groups of containers on a single host. But what if you have more than a few containers, or want those containers to be spread across multiple servers, or even made highly available?
+
+For these scenarios, you'll need a container orchestrator. Kubernetes is a popular container orchestration framework that easily works with Docker. In this lab, you'll learn to set up a Kubernetes cluster with Docker.
+
+Solution
+Log in to the servers using the credentials provided:
+
+ssh cloud_user@<PUBLIC_IP_ADDRESS>
+Configure the Kubernetes Cluster
+On all three nodes, add the Kubernetes repo to /etc/yum.repos.d:
+cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
+Install the repo:
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+exclude=kube*
+EOF
+Disable SELinux:
+sudo setenforce 0
+sudo sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+Install Kubernetes:
+sudo yum install -y kubelet-1.19.4-0 kubeadm-1.19.4-0 kubectl-1.19.4-0 --disableexcludes=kubernetes
+Enable and start kubelet:
+sudo systemctl enable --now kubelet
+Check your docker status on all nodes:
+sudo docker ps -a
+From Node 1, initialize the controller node, and set the code network CIDR to 10.244.0.0/16:
+sudo kubeadm init --pod-network-cidr=10.244.0.0/16
+Run the following commands to start using the cluster:
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+Copy the sudo kubeadm join command, then paste and run it in your Node 2, and Node 3 terminal windows.
+sudo kubeadm join <YOUR_IP>:6443 --token <YOUR_TOKEN> \
+    --discovery-token-ca-cert-hash sha256:<YOUR_HASH>
+From the worker nodes, verify that they can see the cluster:
+sudo docker ps -a
+From Node 1, check the status of the nodes:
+kubectl get nodes
+Install Flannel:
+kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+Create a Pod
+Create the pod.yml file:
+vim pod.yml
+In the file, paste the following:
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod-demo
+  labels:
+    app: nginx-demo
+spec:
+  containers:
+  - image: nginx:latest
+    name: nginx-demo
+    ports:
+    -  containerPort: 80
+    imagePullPolicy: Always
+Save the file:
+ESC
+:wq
+Create the pod:
+kubectl apply -f pod.yml
+Check the status of the pod:
+kubectl get pods
+Create the Service
+Create the service.yml file:
+vim service.yml
+In the file, paste the following:
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-demo
+spec:
+  selector:
+    app: nginx-demo
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: NodePort
+Save the file:
+ESC
+:wq
+Create the service:
+kubectl apply -f service.yml
+Run the following command to view the service:
+kubectl get services
+Take note of the service-demo port number.
+In a web browser, navigate to the public IP address for a server in the cluster, and verify connectivity:
+<PUBLIC_IP_ADDRESS>:<SERVICE_DEMO_PORT_NUMBER>
+
+
+
+
+
+
+
+
+Additional Resources
+Scenario
+For the last six months, the Acme Anvil Corporation has been migrating some of their bare metal infrastructure to Docker containers. A schism has developed between the members of your team,on whether to use Docker Swarm,or Kubernetes.
+
+To settle the dispute, your manager has decided to create a series of challenges. You have been tasked with helping to create the Kubernetes cluster. Create a Kubernetes cluster with 3 nodes on the provided CentOS servers, then create a pod,and service to test out the cluster.
+
+Logging in to the lab environment
+You have three servers. One will be your Controller node and the other two will be your Worker nodes. Log in to the servers using the credentials provided:
+
+ssh cloud_user@<PUBLIC_IP_ADDRESS>
+Learning Objectives
+0 of 3 completed
+
+
+Install Kubernetes
+
+Inspect the Docker environment before you install Kubernetes, both to make sure it is installed, and to show what is currently running for comparison later.
+
+Add the Kubernetes yum repo to every host.
+Set SELinux to permissive mode.
+Install the Kubernetes utilities: kubelet, kubeadm, and kubectl.
+Enable the kubelet service.
+
+Set up the Kubernetes Cluster
+
+Inspect the Docker environment again. See what has changed.
+
+Create a cluster on the Controller node.
+Join the cluster on the Worker nodes.
+Add a network fabric to the cluster.
+
+Test the Cluster
+
+Inspect the Docker environment again. What is running now that wasn't before?
+
+Create an Nginx pod and run it on the cluster.
+Create a NodePort service for the Nginx pod.
+View the Nginx pod in a browser.
+Look at the Docker environment one more time. Notice that even though you started the pod with Kubernetes, it is running the containers using Docker. The worker node where the pod is running will have a container with a name that includes the name of your pod.

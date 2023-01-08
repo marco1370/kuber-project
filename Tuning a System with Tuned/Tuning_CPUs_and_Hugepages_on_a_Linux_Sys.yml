@@ -1,0 +1,96 @@
+Tuning_CPUs_and_Hugepages_on_a_Linux_System
+This course is not approved or sponsored by Red Hat.
+
+Introduction
+This hands-on lab will focus on CPU tuning and configuring hugepages on a lab system. You will be using tuna to view open CPU threads, filtering the output for a specific script, then isolating the script to a specific CPU. When CPU tuning is complete, you will set a value for hugepages and disable transparent hugepages, then confirm the changes after loading the new configuration.
+
+Solution
+Log in to the lab server using the credentials provided:
+
+ssh cloud_user@<PUBLIC_IP_ADDRESS>
+Note: When copying and pasting code into Vim from the lab guide, first enter :set paste (and then i to enter insert mode) to avoid adding unnecessary spaces and hashes. To save and quit the file, press Escape followed by :wq. To exit the file without saving, press Escape followed by :q!.
+
+Manage CPU Affinity Using a PID or Process Name
+Install the tuna package:
+sudo yum install tuna -y
+Launch the affinity.sh script in the background:
+./scripts/affinity.sh &
+Use tuna to show open threads, filtering for dd:
+tuna -t dd -P
+Use tuna to move the dd instance to CPU 0:
+tuna -c 0 -t dd\* --move
+Verify changes:
+tuna -t dd -P
+Kill the dd process:
+sudo kill -9 <PID_NUMBER>
+Manage CPU Affinity Using Systemd
+Enable and start the evodd service:
+sudo systemctl enable evodd --now
+Check process affinity:
+tuna -t dd -P
+Use systecmctl to create an override file for the evodd service.
+sudo systemctl edit evodd.service
+Populate the file with the following values:
+[Service]
+CPUAffinity=0
+Write out and close the file:
+:wq
+Reload systemd daemon:
+sudo systemctl daemon-reload
+Restart evodd service:
+sudo systemctl restart evodd
+Check evodd service status:
+systemctl status evodd
+Check process affinity:
+tuna -t dd -P
+Review the System's Hugepages Configuration
+Check for any kernel configurations:
+cat /proc/cmdline
+Check the grub configuration file:
+cat /etc/default/grub
+Review the values in /proc/meminfo:
+grep -i hugepages /proc/meminfo
+Check the values using sysctl
+sudo sysctl -a | grep vm.nr_hugepages
+Check the value of /sys/kernel/mm/transparent_hugepage/enabled:
+cat /sys/kernel/mm/transparent_hugepage/enabled
+Configure a Hugepages Value and Disable Transparent Hugepages
+Review grub file
+sudo vi /etc/default/grub
+Create a tuned profile called huge_profile
+sudo mkdir /etc/tuned/huge_profile
+Create profile configuration:
+sudo vi /etc/tuned/huge_profile/tuned.conf
+Populate the file with the following values:
+[main]
+include=virtual-guest
+
+[sysctl]
+vm.nr_hugepages=10
+
+[vm]
+transparent_hugepages=never
+Write out and close the file:
+:wq
+Make profile active:
+sudo tuned-adm profile huge_profile
+Verify file and confirm it is active:
+tuned-adm verify
+tuned-adm active
+Review the values in /proc/meminfo:
+grep -i hugepages /proc/meminfo
+Check the values using sysctl
+sudo sysctl -a | grep vm.nr_hugepages
+Check the value of /sys/kernel/mm/transparent_hugepage/enabled:
+cat /sys/kernel/mm/transparent_hugepage/enabled
+Reboot the Lab and Confirm Changes Persist
+Reboot the system:
+sudo shutdown -r now
+Check the active tuned profile:
+tuned-adm active
+Confirm the changes were persistent after the reboot:
+grep -i hugepages /proc/meminfo
+sudo sysctl -a | grep vm.nr_hugepages
+cat /sys/kernel/mm/transparent_hugepage/enabled
+Confirm the process affinity:
+tuna -t dd -P

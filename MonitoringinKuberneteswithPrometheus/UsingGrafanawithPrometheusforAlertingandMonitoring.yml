@@ -1,0 +1,163 @@
+Using_Grafana_with_Prometheus_for_Alerting_and_Monitoring
+Introduction
+In this learning activity, we will learn how to set up Prometheus and Grafana for alerting and monitoring.
+
+Accessing the Live Environment
+On the lab instructions page, copy the public IP address of the cloud server to your clipboard. Open your terminal application, and run the following command:
+
+ssh cloud_user@PUBLIC_IP_ADDRESS
+At the prompt, enter yes to confirm that we wish to continue connecting.
+
+Next, copy the password from the lab instructions page and enter it at the password prompt in your terminal. Then elevate privileges to root.
+
+sudo su -
+Enter the password again when prompted. We have now successfully logged in to the environment.
+
+Using Grafana with Prometheus
+Before we get started, let's take a look at our root directory to see what we have.
+
+ls
+Currently, we have a dashboard, the docker-compose file that was used to set up the environment, and a Prometheus configuration file. Run clear to clear your screen.
+
+Configure Docker
+Open up port 9323 in the firewall:
+
+firewall-cmd --zone=public --add-port=9323/tcp
+Create a daemon.json file for Docker:
+
+vi /etc/docker/daemon.json
+Once /etc/docker/daemon.json is open in the vi text editor, add the following:
+
+{
+  "metrics-addr" : "0.0.0.0:9323",
+  "experimental" : true
+}
+Then, save and exit the vi editor.
+
+:wq
+Restart the Docker service.
+
+systemctl restart docker
+Run clear to clear your screen.
+
+Execute curl using your private IP:
+
+curl http://<PRIVATE_IP_ADDRESS>:9323/metrics
+Update Prometheus
+Next, we're going to edit the prometheus.yml file in the /root directory.
+
+vi prometheus.yml
+Change the contents of the file to the following: (Be sure to provide the private IP address of your instance)
+
+scrape_configs:
+  - job_name: prometheus
+    scrape_interval: 5s
+    static_configs:
+    - targets:
+      - prometheus:9090
+      - node-exporter:9100
+      - pushgateway:9091
+      - cadvisor:8080
+
+  - job_name: docker
+    scrape_interval: 5s
+    static_configs:
+    - targets:
+      - <PRIVATE_IP_ADDRESS>:9323
+Then, save and quit.
+
+:wq
+Update Docker Compose
+The next step is to open our docker-compose file and add three new services. Open docker-compose.yml.
+
+vi ~/docker-compose.yml
+Change the contents of the file to the following:
+
+version: '3'
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - cadvisor
+  cadvisor:
+    image: google/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - 8080:8080
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+  pushgateway:
+    image: prom/pushgateway
+    container_name: pushgateway
+    ports:
+      - 9091:9091
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    expose:
+      - 9100
+  grafana:
+    image: grafana/grafana:5.3.0
+    container_name: grafana
+    ports:
+      - 3000:3000
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=password
+    depends_on:
+      - prometheus
+      - cadvisor
+Then, save and quit.
+
+:wq
+Next, let's apply our changes and rebuild the environment.
+
+docker-compose up -d
+Then, let's make sure everything is running.
+
+docker ps
+Lastly, let's verify that all of our Prometheus targets are healthy. Open a web browser tab, and go to http://<PUBLIC_IP_ADDRESS>:9090. Click Status, and select Targets. Everything should be up and running correctly.
+
+Open up port 9090 in the firewall:
+
+firewall-cmd --add-port 9090/tcp
+Create a New Grafana Data Source
+Navigate to Grafana by entering http://<PUBLIC_IP_ADDRESS>:3000 in the address bar of your browser.
+
+Type admin for username and password for password. Click Log In.
+
+In the Grafana Home Dashboard, click the Add data source icon. For Name, type "Prometheus". Click into the Type field, and select Prometheus from the dropdown. Under URL, select http://localhost:9090. (But we're going to change this in a moment.) Navigate to the lab instructions page, and copy the private IP address to your clipboard. Then, replace "localhost" in the URL with the private IP address. (It should look like this: http://<PRIVATE_IP_ADDRESS>:9090).
+
+Click Save & Test.
+
+Add the Docker Dashboard to Grafana
+Click the plus sign (+) on the left side of the Grafana interface, and click Import. Then, navigate to the lab instructions page. Open the JSON file included in the Instructions & Tasks section in a new browser tab. Copy the contents of the file to your clipboard.
+
+Switch back to Grafana, and paste the text we just copied into the Or paste JSON field. Click Load. On the Import screen, click the dropdown menu for Prometheus, and select the Prometheus data source that we created earlier. Click Import.
+
+We now have our Grafana visualization. In the upper right corner, click on Refresh every 5m and select Last 5 minutes.
+
+Add an Email Notification Channel
+In the left sidebar, click the bell icon, and select Notification channels. Click Add channel. For Name, type "Email Alerts". In Email addresses, enter your email address. Click Save.
+
+Create an Alert for CPU Usage
+Click the dashboard icon in the left sidebar, and select Home. Select the Docker and system monitoring dashboard. Click the CPU Usage graph, and select Edit from the dropdown.
+
+In the Metrics tab, click Add Query. Enter the following:
+
+sum(rate(process_cpu_seconds_total[1m])) * 100
+Click the eye icon on the right side of Row E to hide the new rule from view.
+
+Click the Alert tab, then Create Alert. Under Conditions, click into the query field and select E from the dropdown. For IS ABOVE, type "75". Click Test Rule.
+
+Click Notifications in the left sidebar, then click the + icon next to Send to. Select Email Alerts. Next, click into the Message text box, and type "CPU usage is over 75%." Click the save button at the top of the page. In the save popup that opens, check the box next to Save current variables. In the description box, type "Add alerting". Then click Save.

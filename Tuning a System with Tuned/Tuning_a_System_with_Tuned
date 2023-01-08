@@ -1,0 +1,77 @@
+Tuning_a_System_with_Tuned
+This course is not approved or sponsored by Red Hat.
+
+Introduction
+In this hands-on lab, you will be using Tuned to monitor and optimize the performance of a lab system. As part of the lab, you will view a list of available profiles using tuned-adm. This same command displays the recommended profile for the lab system and will follow up by showing the currently active profile. For the final part of the lab, you will create a custom Tuned profile based on a template. You will modify the custom profile, enable select values, add some system settings, and finally add a custom script.
+
+Solution
+Log in to the lab server using the credentials provided:
+
+ssh cloud_user@<PUBLIC_IP_ADDRESS>
+Note: When copying and pasting code into Vim from the lab guide, first enter :set paste (and then i to enter insert mode) to avoid adding unnecessary spaces and hashes. To save and quit the file, press Escape followed by :wq. To exit the file without saving, press Escape followed by :q!.
+
+Review tuned Profiles
+List available tuned profiles:
+tuned-adm list
+View recommended profile:
+tuned-adm recommend
+Display active profile:
+tuned-adm active
+Review the config for the active profile:
+cat /usr/lib/tuned/virtual-guest/tuned.conf
+Check Current System Configuration Details
+Use sysctl to check the IPv4 and IPv6 forwarding values:
+sysctl net.ipv4.conf.all.forwarding
+sysctl net.ipv6.conf.all.forwarding
+Check /tmp for tuned log files:
+ls /tmp
+Launch PowerTOP to review the recommended Tunables (NOTE: Scroll to the right using tab until you reach the Tunables tab.):
+sudo powertop
+Create a Custom tuned Profile
+Create directory:
+sudo mkdir /etc/tuned/it_profile
+Copy files to new directory:
+sudo cp /home/cloud_user/scripts/pt_profile/* /etc/tuned/it_profile
+Edit the new configuration file:
+sudo vi /etc/tuned/it_profile/tuned.conf
+Add the following values to [sysctl] section:
+# Enable IPv4 and IPv6 forwarding
+# These may already be enabled, but this will ensure the proper configuration
+net.ipv4.conf.all.forwarding = 1
+net.ipv6.conf.all.forwarding = 1
+Uncomment the first 2 entries in [sysfs] section:
+# Runtime PM for I2C Adapter i2c-0 (SMBus PIIX4 adapter at b100)
+/sys/bus/i2c/devices/i2c-0/device/power/control=auto
+
+# Runtime PM for PCI Device Intel Corporation 82371SB PIIX3 ISA [Natoma/Triton II]
+/sys/bus/pci/devices/0000:00:01.0/power/control=auto
+Go to the bottom of the file and add new section, scripts:
+[script]
+# Run a custom script that writes out to a log file when executed
+script=/home/cloud_user/scripts/tuned.sh
+Save and close the file:
+:wq
+Enable and Validate the Custom Profile
+Enable the profile:
+sudo tuned-adm profile it_profile
+Verify the profile has been loaded and settings applied:
+tuned-adm verify
+Validate the changes on the system:
+sysctl net.ipv4.conf.all.forwarding
+sysctl net.ipv6.conf.all.forwarding
+Check /tmp for tuned log files:
+ls /tmp
+Launch PowerTOP and check Tunables:
+sudo powertop
+Reboot the Lab and Confirm Changes Persist
+Reboot system immediately:
+sudo shutdown -r now
+Verify custom profile is active:
+tuned-adm active
+Use sysctl to check the IPv4 and IPv6 forwarding values:
+sysctl net.ipv4.conf.all.forwarding
+sysctl net.ipv6.conf.all.forwarding
+Check /tmp for tuned log files:
+ls /tmp
+Launch PowerTOP and check Tunables:
+sudo powertop

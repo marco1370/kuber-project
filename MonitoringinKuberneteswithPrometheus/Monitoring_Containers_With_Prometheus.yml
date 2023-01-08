@@ -1,0 +1,256 @@
+Monitoring_Containers_With_Prometheus
+Introduction
+Hi there, and welcome. In this lab, we'll walk through how to monitor containers using Docker stats, Prometheus, and cAdvisor.
+
+Getting In
+Log into the server using the credentials provided by the lab, and then become the root user with a sudo su -. We're ready to go.
+
+Create prometheus.yml
+In root's home directory, create prometheus.yml:
+
+vi prometheus.yml
+We've got to stick a few configuration lines in here. When we're done, it should look like this:
+
+scrape_configs:
+- job_name: cadvisor
+  scrape_interval: 5s
+  static_configs:
+  - targets:Monitoring Containers With Prometheus
+Introduction
+Hi there, and welcome. In this lab, we'll walk through how to monitor containers using Docker stats, Prometheus, and cAdvisor.
+
+Getting In
+Log into the server using the credentials provided by the lab, and then become the root user with a sudo su -. We're ready to go.
+
+Create prometheus.yml
+In root's home directory, create prometheus.yml:
+
+vi prometheus.yml
+We've got to stick a few configuration lines in here. When we're done, it should look like this:
+
+scrape_configs:
+- job_name: cadvisor
+  scrape_interval: 5s
+  static_configs:
+  - targets:
+    - cadvisor:8080
+Create the Prometheus Services
+In order to set up Prometheus services, we've got to create configuration files. We're going to make docker-compose.yml, right here in the same directory:
+
+vi docker-compose.yml
+It should look like this when we're finished with it:
+
+version: '3'
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - cadvisor
+
+  cadvisor:
+    image: google/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - 8080:8080
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+In order to stand up the environment, we'll run this:
+
+docker-compose up -d
+And to see if everything stood up properly, let's run a quick docker ps. The output should show four containers: prometheus, cadvisor, nginx, and redis.
+
+Viewing the Prometheus Web Interface
+Let's so see in a web browser as well. Grab the public IP from the lab page, and browse to it, using the correct port number: http://<IP_ADDRESS>:9090/graph/
+
+We should see a Prometheus page. Click on Status in the top menu, and pick Targets. Now we should land on a screen showing a link for cadvisor.
+
+Now let's click on Graph (again, in the top menu). There's an Execute button. In the dropdown next to it, find container_startup_time_second. Then click Execute. Just below, we'll see Graph and Console tabs. They've each got the container startup time information we were hunting for. One tab is just prettier than the other.
+
+Just above that *Execute button and related dropdown is a web form field where we can type different expressions. Let's try that now, sticking rate(container_cpu_usage_seconds_total{name="redis"}[1m]) in there. We can do this instead of using the dropdown if we want. If we hit Execute, the information below changes to reflect our new "query."
+
+Investigating cAdvisor
+In a browser, navigate to http://<IP_ADDRESS>:8080/containers/. Take a peek around, then change the URL to one of our container names (like nginx) so we're at http://<IP_ADDRESS>:8080/docker/nginx/.
+
+Stats in Docker
+If we run docker stats, we're going to get some output that looks a lot like docker ps, but this stays open and reports what's going on as far as the various aspects (CPU and memory usage, etc.) of our containers.
+
+To get out of this, hit Ctrl+C
+
+Prettier Stats
+We can format the output of docker stats differently if we want. And, if we really want to get fancy, we can do it in a shell script. Let's do it.
+
+Create a stats.sh file in /root:
+
+vi ~/stats.sh
+Now let's fill it with this command:
+
+docker stats --format "table {{.Name}} {{.ID}} {{.MemUsage}} {{.CPUPerc}}"
+Once we've made sure the file is executable (chmod a+x stats.sh) we can run it with this:
+
+./stats.sh
+Just like before, when we get bored watching stats, we can exit by pressing Ctrl+C
+
+Conclusion
+    - cadvisor:8080
+Create the Prometheus Services
+In order to set up Prometheus services, we've got to create configuration files. We're going to make docker-compose.yml, right here in the same directory:
+
+vi docker-compose.yml
+It should look like this when we're finished with it:
+
+version: '3'
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    containMonitoring Containers With Prometheus
+Introduction
+Hi there, and welcome. In this lab, we'll walk through how to monitor containers using Docker stats, Prometheus, and cAdvisor.
+
+Getting In
+Log into the server using the credentials provided by the lab, and then become the root user with a sudo su -. We're ready to go.
+
+Create prometheus.yml
+In root's home directory, create prometheus.yml:
+
+vi prometheus.yml
+We've got to stick a few configuration lines in here. When we're done, it should look like this:
+
+scrape_configs:
+- job_name: cadvisor
+  scrape_interval: 5s
+  static_configs:
+  - targets:
+    - cadvisor:8080
+Create the Prometheus Services
+In order to set up Prometheus services, we've got to create configuration files. We're going to make docker-compose.yml, right here in the same directory:
+
+vi docker-compose.yml
+It should look like this when we're finished with it:
+
+version: '3'
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - cadvisor
+
+  cadvisor:
+    image: google/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - 8080:8080
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+In order to stand up the environment, we'll run this:
+
+docker-compose up -d
+And to see if everything stood up properly, let's run a quick docker ps. The output should show four containers: prometheus, cadvisor, nginx, and redis.
+
+Viewing the Prometheus Web Interface
+Let's so see in a web browser as well. Grab the public IP from the lab page, and browse to it, using the correct port number: http://<IP_ADDRESS>:9090/graph/
+
+We should see a Prometheus page. Click on Status in the top menu, and pick Targets. Now we should land on a screen showing a link for cadvisor.
+
+Now let's click on Graph (again, in the top menu). There's an Execute button. In the dropdown next to it, find container_startup_time_second. Then click Execute. Just below, we'll see Graph and Console tabs. They've each got the container startup time information we were hunting for. One tab is just prettier than the other.
+
+Just above that *Execute button and related dropdown is a web form field where we can type different expressions. Let's try that now, sticking rate(container_cpu_usage_seconds_total{name="redis"}[1m]) in there. We can do this instead of using the dropdown if we want. If we hit Execute, the information below changes to reflect our new "query."
+
+Investigating cAdvisor
+In a browser, navigate to http://<IP_ADDRESS>:8080/containers/. Take a peek around, then change the URL to one of our container names (like nginx) so we're at http://<IP_ADDRESS>:8080/docker/nginx/.
+
+Stats in Docker
+If we run docker stats, we're going to get some output that looks a lot like docker ps, but this stays open and reports what's going on as far as the various aspects (CPU and memory usage, etc.) of our containers.
+
+To get out of this, hit Ctrl+C
+
+Prettier Stats
+We can format the output of docker stats differently if we want. And, if we really want to get fancy, we can do it in a shell script. Let's do it.
+
+Create a stats.sh file in /root:
+
+vi ~/stats.sh
+Now let's fill it with this command:
+
+docker stats --format "table {{.Name}} {{.ID}} {{.MemUsage}} {{.CPUPerc}}"
+Once we've made sure the file is executable (chmod a+x stats.sh) we can run it with this:
+
+./stats.sh
+Just like before, when we get bored watching stats, we can exit by pressing Ctrl+C
+
+Conclusioner_name: prometheus
+    ports:
+      - 9090:9090
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - cadvisor
+
+  cadvisor:
+    image: google/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - 8080:8080
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+In order to stand up the environment, we'll run this:
+
+docker-compose up -d
+And to see if everything stood up properly, let's run a quick docker ps. The output should show four containers: prometheus, cadvisor, nginx, and redis.
+
+Viewing the Prometheus Web Interface
+Let's so see in a web browser as well. Grab the public IP from the lab page, and browse to it, using the correct port number: http://<IP_ADDRESS>:9090/graph/
+
+We should see a Prometheus page. Click on Status in the top menu, and pick Targets. Now we should land on a screen showing a link for cadvisor.
+
+Now let's click on Graph (again, in the top menu). There's an Execute button. In the dropdown next to it, find container_startup_time_second. Then click Execute. Just below, we'll see Graph and Console tabs. They've each got the container startup time information we were hunting for. One tab is just prettier than the other.
+
+Just above that *Execute button and related dropdown is a web form field where we can type different expressions. Let's try that now, sticking rate(container_cpu_usage_seconds_total{name="redis"}[1m]) in there. We can do this instead of using the dropdown if we want. If we hit Execute, the information below changes to reflect our new "query."
+
+Investigating cAdvisor
+In a browser, navigate to http://<IP_ADDRESS>:8080/containers/. Take a peek around, then change the URL to one of our container names (like nginx) so we're at http://<IP_ADDRESS>:8080/docker/nginx/.
+
+Stats in Docker
+If we run docker stats, we're going to get some output that looks a lot like docker ps, but this stays open and reports what's going on as far as the various aspects (CPU and memory usage, etc.) of our containers.
+
+To get out of this, hit Ctrl+C
+
+Prettier Stats
+We can format the output of docker stats differently if we want. And, if we really want to get fancy, we can do it in a shell script. Let's do it.
+
+Create a stats.sh file in /root:
+
+vi ~/stats.sh
+Now let's fill it with this command:
+
+docker stats --format "table {{.Name}} {{.ID}} {{.MemUsage}} {{.CPUPerc}}"
+Once we've made sure the file is executable (chmod a+x stats.sh) we can run it with this:
+
+./stats.sh
+Just like before, when we get bored watching stats, we can exit by pressing Ctrl+C
+
+Conclusion
